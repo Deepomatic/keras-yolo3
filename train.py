@@ -17,10 +17,10 @@ import os
 import sys
 
 
-def train(config_path):
+def train(config_path, split_val=None):
     train_path = os.path.join(config_path, 'train.txt')
     val_path = os.path.join(config_path, 'val.txt')
-    log_dir = 'logs/000/'
+    log_dir = '/logs/000/'
     classes_path = os.path.join(config_path, 'classes.txt')
     anchors_path = os.path.join(config_path, 'anchors.txt')
     class_names = get_classes(classes_path)
@@ -56,8 +56,17 @@ def train(config_path):
     with open(train_path) as f:
         train_lines = f.readlines()
 
-    with open(val_path) as f:
-        val_lines = f.readlines()
+    if split_val is not None:
+        print(f"Splitting train/val {split_val}")
+        np.random.seed(10101)
+        np.random.shuffle(train_lines)
+        np.random.seed(None)
+        split = int(len(train_lines)*(1 - split_val))
+        val_lines = train_lines[split:]
+        train_lines = train_lines[:split]
+    else:
+        with open(val_path) as f:
+            val_lines = f.readlines()
 
     num_val = len(val_lines)
     num_train = len(train_lines)
@@ -74,7 +83,7 @@ def train(config_path):
                         'yolo_loss': lambda y_true, y_pred: y_pred
                       })
 
-        batch_size = 1
+        batch_size = 32
 
         print(f'Train on {num_train} samples, val on {num_val} samples, with batch size {batch_size}.')
 
@@ -100,6 +109,8 @@ def train(config_path):
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
     if full_training is True:
+        num_epochs = 1000
+
         for i in range(len(model.layers)):
             model.layers[i].trainable = True
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
@@ -124,7 +135,7 @@ def train(config_path):
                             steps_per_epoch=max(1, num_train // batch_size),
                             validation_data=val_data,
                             validation_steps=max(1, num_val // batch_size),
-                            epochs=50,
+                            epochs=num_epochs,
                             initial_epoch=0,
                             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
         model.save_weights(log_dir + 'trained_weights_final.h5')
@@ -239,6 +250,13 @@ if __name__ == '__main__':
         'config_path',
         type=str,
         help='path to configuration directory'
+    )
+
+    parser.add_argument(
+        '--split_val',
+        type=float,
+        default=None,
+        help='split val ratio'
     )
 
     FLAGS = parser.parse_args()

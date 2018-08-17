@@ -35,4 +35,5 @@ ENV SHELL=/bin/bash
 COPY ./Pipfile /base/Pipfile
 RUN cd /base && pipenv install
 
-CMD ["/bin/bash"]
+COPY ./Makefile /base/Makefile
+WORKDIR /base/
