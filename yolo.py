@@ -26,7 +26,7 @@ class YOLO(object):
         "score" : 0.3,
         "iou" : 0.45,
         "model_image_size" : (416, 416),
-        "gpu_num" : 1,
+        "gpu_num" : 2,
     }
 
     @classmethod
@@ -38,7 +38,9 @@ class YOLO(object):
 
     def __init__(self, **kwargs):
         self.__dict__.update(self._defaults) # set up default values
+        print(self.__dict__)
         self.__dict__.update(kwargs) # and update with user overrides
+        print(self.__dict__)
         self.class_names = self._get_class()
         self.anchors = self._get_anchors()
         self.sess = K.get_session()
@@ -67,12 +69,9 @@ class YOLO(object):
         num_classes = len(self.class_names)
         is_tiny_version = num_anchors==6 # default setting
         try:
-            self.yolo_model = load_model(model_path, compile=False)
+            self.yolo_model = yolo_body(Input(shape=(None, None, 3)), num_anchors // 3, num_classes)
+            self.yolo_model.load_weights(self.model_path)
         except:
-            self.yolo_model = tiny_yolo_body(Input(shape=(None,None,3)), num_anchors//2, num_classes) \
-                if is_tiny_version else yolo_body(Input(shape=(None,None,3)), num_anchors//3, num_classes)
-            self.yolo_model.load_weights(self.model_path) # make sure model, anchors and classes match
-        else:
             assert self.yolo_model.layers[-1].output_shape[-1] == \
                 num_anchors/len(self.yolo_model.output) * (num_classes + 5), \
                 'Mismatch between model and given anchor and class sizes'
@@ -202,11 +201,11 @@ def detect_video(yolo, video_path, output_path=""):
             curr_fps = 0
         cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                     fontScale=0.50, color=(255, 0, 0), thickness=2)
-        cv2.namedWindow("result", cv2.WINDOW_NORMAL)
-        cv2.imshow("result", result)
+        # cv2.namedWindow("result", cv2.WINDOW_NORMAL)
+        # cv2.imshow("result", result)
         if isOutput:
             out.write(result)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+            # break
     yolo.close_session()
 
